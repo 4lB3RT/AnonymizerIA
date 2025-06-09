@@ -1,54 +1,195 @@
 openapi: 3.0.0
 info:
-  title: Anonymizer API
-  description: Optional multiline or single-line description in [CommonMark](http://commonmark.org/help/) or HTML.
-  version: 0.1.9
+  title: AnonymizerIA API
+  description: |
+    AnonymizerIA is a powerful API service that helps you generate anonymized data for your database schemas.
+    It provides a simple way to create realistic test data while maintaining referential integrity and data relationships.
+  version: 1.0.0
+  contact:
+    name: AnonymizerIA Support
+    url: https://github.com/yourusername/AnonymizerIA
+    email: support@anonymizeria.com
+
 servers:
-  - url: http://0.0.0.0:8000/api
+  - url: http://localhost:8000/api
+    description: Local development server
+  - url: https://api.anonymizeria.com
+    description: Production server
+
 paths:
-  /categories:
-    get:
-      summary: Returns a category collection.
+  /database/generate:
+    post:
+      summary: Generate anonymized data for a database schema
+      description: |
+        Generates realistic, anonymized data based on the provided database schema.
+        Uses Gemini AI to create contextually appropriate data while maintaining referential integrity.
+      operationId: generateDatabaseData
+      tags:
+        - Database
+      parameters:
+        - name: rows_per_table
+          in: query
+          description: Number of rows to generate per table
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DatabaseSchema'
+            example:
+              tables:
+                - name: customers
+                  columns:
+                    - name: id
+                      data_type: int
+                      is_primary_key: true
+                      is_nullable: false
+                    - name: first_name
+                      data_type: varchar(50)
+                      is_nullable: false
+                    - name: email
+                      data_type: varchar(100)
+                      is_nullable: false
+                - name: orders
+                  columns:
+                    - name: id
+                      data_type: int
+                      is_primary_key: true
+                      is_nullable: false
+                    - name: customer_id
+                      data_type: int
+                      is_foreign_key: true
+                      referenced_table: customers
+                      referenced_column: id
+                      is_nullable: false
       responses:
         '200':
-          description: A JSON array of categories
+          description: Successfully generated data
           content:
-           application/json:
+            application/json:
               schema:
-                $ref: '#/components/schemas/Categories'            
-        '404':
-          $ref: '#/components/responses/NotFound'
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: object
+              example:
+                customers:
+                  - id: 1
+                    first_name: "John"
+                    email: "john.doe@example.com"
+                  - id: 2
+                    first_name: "Jane"
+                    email: "jane.smith@example.com"
+                orders:
+                  - id: 1
+                    customer_id: 1
+                  - id: 2
+                    customer_id: 2
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   schemas:
-    Category:     
+    DatabaseSchema:
       type: object
+      required:
+        - tables
       properties:
-        id:
-          type: integer
-          example: 2
+        tables:
+          type: array
+          items:
+            $ref: '#/components/schemas/Table'
+    
+    Table:
+      type: object
+      required:
+        - name
+        - columns
+      properties:
         name:
           type: string
-          example: "CategoryName"
-        category_id: 
-          type: integer
-          example: 1
-        is_parent: 
-          type: boolean
-          example: true
-        status: 
+          description: Name of the table
+        columns:
+          type: array
+          items:
+            $ref: '#/components/schemas/Column'
+    
+    Column:
+      type: object
+      required:
+        - name
+        - data_type
+      properties:
+        name:
           type: string
-          example: PROCESSED
-        published: 
+          description: Name of the column
+        data_type:
+          type: string
+          description: Data type of the column (e.g., int, varchar, date)
+          enum:
+            - int
+            - float
+            - double
+            - decimal
+            - varchar
+            - text
+            - date
+            - datetime
+            - boolean
+        is_primary_key:
           type: boolean
-          example: true
-        order: 
-          type: integer
-          example: 102
-    Categories: 
-      type: array
-      items: 
-        $ref: '#/components/schemas/Category'
-  responses:
-    NotFound:
-      description: Entity not found
+          description: Whether this column is a primary key
+          default: false
+        is_foreign_key:
+          type: boolean
+          description: Whether this column is a foreign key
+          default: false
+        referenced_table:
+          type: string
+          description: Name of the referenced table (required if is_foreign_key is true)
+        referenced_column:
+          type: string
+          description: Name of the referenced column (required if is_foreign_key is true)
+        is_nullable:
+          type: boolean
+          description: Whether this column can contain null values
+          default: true
+    
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message
+      example:
+        error: "Invalid database schema: missing required table 'users'"
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication
+
+security:
+  - ApiKeyAuth: []
 
